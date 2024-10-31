@@ -164,3 +164,56 @@ SELECT contact_name, order_id
 FROM orders
 RIGHT JOIN customers USING(customer_id)
 WHERE order_id IS NULL
+
+--Подзапросы
+--1. Вывести продукты количество которых в продаже меньше самого малого среднего количества продуктов в деталях
+-- заказов (группировка по product_id). Результирующая таблица должна иметь колонки product_name и units_in_stock.
+SELECT product_name, units_in_stock
+FROM products
+WHERE units_in_stock < ALL(
+    SELECT AVG(quantity)
+    FROM order_details
+    GROUP BY product_id
+    )
+
+
+--2. Напишите запрос, который выводит общую сумму фрахтов заказов для компаний-заказчиков для заказов, стоимость
+-- фрахта которых больше или равна средней величине стоимости фрахта всех заказов, а также дата отгрузки заказа должна
+-- находится во второй половине июля 1996 года. Результирующая таблица должна иметь колонки customer_id и freight_sum,
+-- строки которой должны быть отсортированы по сумме фрахтов заказов.
+SELECT customer_id, SUM(freight) AS freight_sum
+FROM orders
+WHERE freight >= (
+    SELECT AVG(freight)
+    FROM orders
+)
+  AND shipped_date BETWEEN '1996-07-16' AND '1996-07-31'
+GROUP BY customer_id
+ORDER BY freight_sum
+
+--3. Напишите запрос, который выводит 3 заказа с наибольшей стоимостью, которые были созданы после 1 сентября 1997 года
+-- включительно и были доставлены в страны Южной Америки. Общая стоимость рассчитывается как сумма стоимости деталей
+-- заказа с учетом дисконта. Результирующая таблица должна иметь колонки customer_id, ship_country и order_price,
+-- строки которой должны быть отсортированы по стоимости заказа в обратном порядке.
+SELECT customer_id, ship_country, SUM(order_details.unit_price * order_details.quantity * (1 - order_details.discount)) AS order_price
+FROM orders
+JOIN order_details ON orders.order_id = order_details.order_id
+WHERE orders.order_date >= '1997-09-01' AND orders.ship_country IN ('Argentina', 'Brazil', 'Venezuela')
+GROUP BY orders.customer_id, orders.ship_country, orders.order_id
+ORDER BY order_price DESC
+LIMIT 3
+
+--4. Вывести все товары (уникальные названия продуктов), которых заказано ровно 10 единиц
+-- (конечно же, это можно решить и без подзапроса).
+SELECT product_name
+FROM products
+WHERE product_id = ANY (
+    SELECT product_id
+    FROM order_details
+    WHERE quantity = 10
+)
+
+SELECT DISTINCT product_name
+FROM products
+LEFT JOIN order_details USING(product_id)
+WHERE order_details.quantity = 10
